@@ -1,0 +1,119 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Model function with extended parameters
+def compute_female_dynamics_extended(time_array, r=0.9, T_V=68.35, T_M=14.34, tau=20, 
+                                     p_success=0.75, n_individuals=100):
+    P_V0 = 1 - r
+    P_M0 = r
+
+    # Introduce noise based on sample size
+    stderr_T_V = T_V / np.sqrt(n_individuals)
+    stderr_T_M = T_M / np.sqrt(n_individuals)
+    T_V_adj = np.random.normal(T_V, stderr_T_V)
+    T_M_adj = np.random.normal(T_M, stderr_T_M)
+
+    P_V_swarm = (P_V0 * T_V_adj) / (P_V0 * T_V_adj + P_M0 * T_M_adj)
+
+    # Depletion constant adjusted by mating success
+    k = p_success / tau
+    P_V_t = P_V_swarm * np.exp(-k * time_array)
+    P_M_t = P_V_swarm - P_V_t
+    P_M_effective = 2 * P_M_t
+    P_total = P_V_t + P_M_effective
+
+    return pd.DataFrame({
+        "Time_seconds": time_array,
+        "Virgin_females": P_V_t,
+        "Effective_mated_females": P_M_effective,
+        "Total_effective_females": P_total,
+        "T_V_adj": T_V_adj,
+        "T_M_adj": T_M_adj,
+        "P_V_swarm": P_V_swarm
+    })
+
+# Styling
+def set_custom_plot_style():
+    plt.rcParams['figure.dpi'] = 500
+    plt.rcParams['figure.figsize'] = (4, 4)
+    plt.rcParams["font.family"] = "DejaVu Sans"
+    ax = plt.gca()
+    ax.set_facecolor('whitesmoke')
+    ax.patch.set_edgecolor('black')
+    ax.patch.set_linewidth(0.3)
+    return ax
+
+# Time array
+time_array = np.linspace(0, 300, 300)
+
+# Run model once with default parameters for this specific plot
+df = compute_female_dynamics_extended(time_array)
+
+# Apply user-defined plot formatting and style
+plt.rcParams['figure.dpi'] = 500
+plt.rcParams['figure.figsize'] = (4, 4)
+plt.rcParams["font.family"] = "DejaVu Sans"
+plt.gca().set_facecolor('whitesmoke')
+plt.gca().patch.set_edgecolor('black')
+plt.gca().patch.set_linewidth(0.3)
+
+# Plot
+plt.plot(df["Time_seconds"], df["Virgin_females"], label="Virgin females", linewidth=2, color='#88CCEE')
+plt.plot(df["Time_seconds"], df["Effective_mated_females"], label="Mated females", linewidth=2, color='#CC6677')
+plt.plot(df["Time_seconds"], df["Total_effective_females"], label="Total effective females", linestyle='--', linewidth=2, color='grey')
+
+plt.xlabel("Time since swarming started (seconds)")
+plt.ylabel("Proportion of females")
+plt.legend()
+plt.grid(False)
+plt.tight_layout()
+plt.show()
+
+# Time array
+time_array = np.linspace(0, 300, 300)
+
+# --- Plot: tau vs Virgin Females ---
+taus = [10, 20, 30, 40, 50]
+plt.figure()
+ax = set_custom_plot_style()
+for tau in taus:
+    df = compute_female_dynamics_extended(time_array, tau=tau)
+    plt.plot(df["Time_seconds"], df["Virgin_females"], label=f'tau={tau}', linewidth=2)
+plt.xlabel("Time (s)")
+plt.ylabel("Virgin females")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# --- Plot: r vs Virgin Females ---
+rs = [0.5, 0.6, 0.7, 0.8, 0.9]
+plt.figure()
+ax = set_custom_plot_style()
+for r in rs:
+    df = compute_female_dynamics_extended(time_array, r=r)
+    plt.plot(df["Time_seconds"], df["Virgin_females"], label=f'r={r}', linewidth=2)
+plt.xlabel("Time (s)")
+plt.ylabel("Virgin females in swarm")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# --- Plot: Tau CI Sensitivity ---
+tau_mean = 20
+tau_lower = 15
+tau_upper = 25
+df_mean = compute_female_dynamics_extended(time_array, tau=tau_mean)
+df_lower = compute_female_dynamics_extended(time_array, tau=tau_lower)
+df_upper = compute_female_dynamics_extended(time_array, tau=tau_upper)
+
+plt.figure()
+ax = set_custom_plot_style()
+plt.plot(df_mean["Time_seconds"], df_mean["Virgin_females"], label="Mean (20s)", linewidth=2, color="#117733")
+plt.plot(df_lower["Time_seconds"], df_lower["Virgin_females"], label="Lower CI (15s)", linestyle="--", linewidth=2, color="#44AA99")
+plt.plot(df_upper["Time_seconds"], df_upper["Virgin_females"], label="Upper CI (25s)", linestyle="--", linewidth=2, color="#DDCC77")
+plt.xlabel("Time (s)")
+plt.ylabel("Virgin females in swarm")
+plt.legend()
+plt.tight_layout()
+plt.show()
